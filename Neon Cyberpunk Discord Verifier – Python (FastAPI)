@@ -1,0 +1,37 @@
+# 🧬 Cyberpunk Discord Verifier – FastAPI + NaCl
+# Glows in the dark. Verifies in milliseconds.
+
+from fastapi import FastAPI, Request, Header, HTTPException
+from nacl.signing import VerifyKey
+from nacl.exceptions import BadSignatureError
+import os
+
+app = FastAPI()
+
+# 🔐 Load your Discord public key from environment
+DISCORD_PUBLIC_KEY = os.getenv("DISCORD_PUBLIC_KEY")
+
+@app.post("/api/discord/interactions")
+async def interactions(
+    request: Request,
+    x_signature_ed25519: str = Header(...),
+    x_signature_timestamp: str = Header(...)
+):
+    body = await request.body()
+
+    # 🧠 Verify the signature
+    try:
+        verify_key = VerifyKey(bytes.fromhex(DISCORD_PUBLIC_KEY))
+        verify_key.verify(
+            f"{x_signature_timestamp}".encode() + body,
+            bytes.fromhex(x_signature_ed25519)
+        )
+    except BadSignatureError:
+        raise HTTPException(status_code=401, detail="Invalid request signature")
+
+    # ⚡ Respond to Discord PING
+    if b'"type":1' in body:
+        return { "type": 1 }
+
+    # 🧩 Handle other interactions here
+    return { "type": 5, "data": { "content": "Neon handshake complete." } }
